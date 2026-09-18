@@ -28,7 +28,7 @@ public class CatRendererMixin {
 	 * 幼猫不换皮（保持原版）。
 	 * TAIL 注入：先获取原版返回值，再替换成我们的贴图，避免递归调用。
 	 */
-	@Inject(method = "getTexture(Lnet/minecraft/world/entity/animal/Cat;)Lnet/minecraft/resources/ResourceLocation;", at = @At("TAIL"), cancellable = true)
+	@Inject(method = "getTexture(Lnet/minecraft/world/entity/animal/Cat;)Lnet/minecraft/resources/ResourceLocation;", at = @At("TAIL"), cancellable = true, require = 0)
 	private void laowuMaodieTexture(Cat cat, CallbackInfoReturnable<ResourceLocation> cir) {
 		boolean baby = cat.isBaby();
 		if (baby) return;
@@ -58,7 +58,7 @@ public class CatRendererMixin {
 	 * 渲染缩放：老吴整活放大 1.25 倍 + 铲子拍扁 y 轴压扁。
 	 * 注入到 render 方法 HEAD，在 super.render 之前缩放 PoseStack。
 	 */
-	@Inject(method = "render(Lnet/minecraft/world/entity/animal/Cat;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At("HEAD"))
+	@Inject(method = "render(Lnet/minecraft/world/entity/animal/Cat;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At("HEAD"), require = 0)
 	private void laowuScale(Cat cat, float entityYaw, float partialTicks, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, CallbackInfo ci) {
 		try {
 			ClientMemeState cs = ClientMemeState.get();

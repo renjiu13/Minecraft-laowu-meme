@@ -3,7 +3,6 @@ package com.rogic.client.mixin;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.LoopingAudioStream;
-import net.minecraft.client.sounds.OggAudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
 import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,6 +16,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
 
+import com.mojang.blaze3d.audio.OggAudioStream;
 import com.rogic.client.sound.SoundIdCodec;
 
 /**
