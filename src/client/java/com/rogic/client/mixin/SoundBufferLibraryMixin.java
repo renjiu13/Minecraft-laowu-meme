@@ -5,7 +5,7 @@ import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.JOrbisAudioStream;
 import net.minecraft.client.sounds.LoopingAudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -23,19 +23,13 @@ import com.rogic.client.sound.SoundIdCodec;
  * 拦截 laowu_meme:sounds/imported/<hex名>.ogg 的资源读取，hex 解码出真实文件名后直接从
  * config/laowu_meme/sounds/<名>.ogg 读取并用 JOrbis 解码，使导入音频无需进资源包即可播放。
  *
- * 关键点（v1.1.25 最终定案）：SoundEngine.play 调用 getStream(location, looping) 时，
- * 传入的 location 是 Sound.getPath() 的结果，格式为 laowu_meme:sounds/imported/<hex>.ogg
- *（带 sounds/ 前缀和 .ogg 后缀）。因此 mixin 必须匹配 sounds/imported/。
- *
- * 仅对 laowu_meme 命名空间 + sounds/imported/ 路径生效，其余声音走原逻辑。
- * looping 分支完全照搬原版 getStream：用 LoopingAudioStream 包一层，provider 每次从
- * 重置后的流重新建解码器，实现无缝循环。
+ * 1.20.1 版本：使用 ResourceLocation 而非 Identifier。
  */
 @Mixin(SoundBufferLibrary.class)
 public class SoundBufferLibraryMixin {
-	@Inject(method = "getStream(Lnet/minecraft/resources/Identifier;Z)Ljava/util/concurrent/CompletableFuture;",
+	@Inject(method = "getStream(Lnet/minecraft/resources/ResourceLocation;Z)Ljava/util/concurrent/CompletableFuture;",
 			at = @At("HEAD"), cancellable = true)
-	private void laowuInterceptImportedStream(Identifier id, boolean looping, CallbackInfoReturnable<CompletableFuture<AudioStream>> cir) {
+	private void laowuInterceptImportedStream(ResourceLocation id, boolean looping, CallbackInfoReturnable<CompletableFuture<AudioStream>> cir) {
 		if (!id.getNamespace().equals("laowu_meme")) return;
 		String path = id.getPath();
 		// SoundEngine.play 调用 getStream 时传入的是 Sound.getPath() 结果：

@@ -3,12 +3,14 @@ package com.rogic;
 import com.rogic.network.FlatS2CPacket;
 import com.rogic.network.MemeStopS2CPacket;
 import com.rogic.network.MemeTriggerS2CPacket;
+import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.animal.feline.Cat;
+import net.minecraft.world.entity.animal.Cat;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.level.entity.EntityTypeTest;
@@ -29,7 +31,7 @@ import java.util.*;
 public final class ServerMemeManager {
 	public static final String LAOWU_NAME = "老吴";
 	public static final double TRIGGER_DISTANCE = 6.0;          // 触发扫描距离
-	public static final double LOCK_DISTANCE = 2.0;             // 锁定时两猫中心距（头对头、身体明显分开，2.0 比 1.8 再微远一丢丢，用户要求"再远一点点"）
+	public static final double LOCK_DISTANCE = 2.0;             // 锁定时两猫中心距（头对头、身体明显分开）
 	public static final double SPLIT = LOCK_DISTANCE / 2.0;     // 各自离中点
 	public static final double APPROACH_SPEED = 0.14;           // 每 tick 前进距离（≈走路）
 	public static final long COOLDOWN_TICKS = 3L * 60 * 20;     // 3 分钟
@@ -104,8 +106,7 @@ public final class ServerMemeManager {
 
 	/** 铲子拍扁：解除对头/耄耋状态，进入扁平态（客户端渲染压扁），8 秒后自动恢复 */
 	public static void flattenCat(Cat cat) {
-		// 服务端守卫：单机/集成服务器下 UseEntityCallback 在客户端线程（Render/Netty Local IO）也会触发，
-		// 此时 cat.level() 是 ClientLevel，若继续会把 flattened 时间戳存 0 → serverTick 立即判定到期 → 拍扁瞬回。
+		// 服务端守卫：单机/集成服务器下 UseEntityCallback 在客户端线程也会触发
 		if (!(cat.level() instanceof ServerLevel)) return;
 		// 解除对头配对（若有）
 		MemePair p = findPair(cat.getUUID());
@@ -120,7 +121,7 @@ public final class ServerMemeManager {
 			MinecraftServer server = cat.level() instanceof ServerLevel sl2 ? sl2.getServer() : null;
 			if (server != null) {
 				for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
-					ServerPlayNetworking.send(sp, new FlatS2CPacket(id, true));
+					sendFlatPacket(sp, id, true);
 				}
 			}
 			LaowuMemeMod.LOGGER.info("[laowu meme] 铲子拍扁：catId={}", id);
@@ -130,7 +131,7 @@ public final class ServerMemeManager {
 	/** 扁平态到期恢复 */
 	private static void restoreFlat(MinecraftServer server, int catId) {
 		for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
-			ServerPlayNetworking.send(sp, new FlatS2CPacket(catId, false));
+			sendFlatPacket(sp, catId, false);
 		}
 		LaowuMemeMod.LOGGER.info("[laowu meme] 拍扁恢复：catId={}", catId);
 	}
@@ -166,7 +167,7 @@ public final class ServerMemeManager {
 
 	private static void startPair(Cat a, Cat b) {
 		int rollSign = a.getRandom().nextBoolean() ? 1 : -1;
-		int soundId = a.getRandom().nextInt(3); // 0=laowu2, 1=qiliang, 2=zhanhou，三者都可能被服务端选中
+		int soundId = a.getRandom().nextInt(3); // 0=laowu2, 1=qiliang, 2=zhanhou
 		activePairs.add(new MemePair(a, b, rollSign, soundId));
 		LaowuMemeMod.LOGGER.info("[laowu meme] 配对锁定：{} <-> {}", a.getUUID(), b.getUUID());
 	}
@@ -194,15 +195,35 @@ public final class ServerMemeManager {
 	private static void broadcastStop(MemePair p) {
 		MemeStopS2CPacket pkt = new MemeStopS2CPacket(p.catAId, p.catBId);
 		for (ServerPlayer sp : p.server().getPlayerList().getPlayers()) {
-			ServerPlayNetworking.send(sp, pkt);
+			sendStopPacket(sp, pkt);
 		}
 	}
 
 	private static void broadcastTrigger(MemePair p) {
 		MemeTriggerS2CPacket pkt = new MemeTriggerS2CPacket(p.catAId, p.catBId, p.soundId, p.rollSign);
 		for (ServerPlayer sp : p.server().getPlayerList().getPlayers()) {
-			ServerPlayNetworking.send(sp, pkt);
+			sendTriggerPacket(sp, pkt);
 		}
+	}
+
+	// ---- 网络包发送辅助 ----
+
+	private static void sendTriggerPacket(ServerPlayer player, MemeTriggerS2CPacket pkt) {
+		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+		MemeTriggerS2CPacket.write(pkt, buf);
+		ServerPlayNetworking.send(player, MemeTriggerS2CPacket.ID, buf);
+	}
+
+	private static void sendStopPacket(ServerPlayer player, MemeStopS2CPacket pkt) {
+		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+		MemeStopS2CPacket.write(pkt, buf);
+		ServerPlayNetworking.send(player, MemeStopS2CPacket.ID, buf);
+	}
+
+	private static void sendFlatPacket(ServerPlayer player, int catId, boolean flat) {
+		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+		FlatS2CPacket.write(new FlatS2CPacket(catId, flat), buf);
+		ServerPlayNetworking.send(player, FlatS2CPacket.ID, buf);
 	}
 
 	private static boolean isLaowu(Cat c) {

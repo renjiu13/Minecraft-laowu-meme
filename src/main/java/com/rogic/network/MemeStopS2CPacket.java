@@ -1,25 +1,31 @@
 package com.rogic.network;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * 服务端 → 客户端：通知某两只猫结束锁定状态（右键释放 / 猫消失）。
  * 客户端据此停止歪头渲染与音乐。
  */
-public record MemeStopS2CPacket(int catAId, int catBId) implements CustomPacketPayload {
-	public static final Type<MemeStopS2CPacket> TYPE = new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("laowu_meme", "stop"));
-	public static final StreamCodec<RegistryFriendlyByteBuf, MemeStopS2CPacket> CODEC = StreamCodec.composite(
-			ByteBufCodecs.INT, MemeStopS2CPacket::catAId,
-			ByteBufCodecs.INT, MemeStopS2CPacket::catBId,
-			MemeStopS2CPacket::new
-	);
+public class MemeStopS2CPacket {
+	public static final ResourceLocation ID = new ResourceLocation("laowu_meme", "stop");
 
-	@Override
-	public Type<? extends CustomPacketPayload> type() {
-		return TYPE;
+	public final int catAId;
+	public final int catBId;
+
+	public MemeStopS2CPacket(int catAId, int catBId) {
+		this.catAId = catAId;
+		this.catBId = catBId;
+	}
+
+	public static void write(MemeStopS2CPacket pkt, FriendlyByteBuf buf) {
+		buf.writeInt(pkt.catAId);
+		buf.writeInt(pkt.catBId);
+	}
+
+	public static MemeStopS2CPacket read(FriendlyByteBuf buf) {
+		int catAId = buf.readInt();
+		int catBId = buf.readInt();
+		return new MemeStopS2CPacket(catAId, catBId);
 	}
 }

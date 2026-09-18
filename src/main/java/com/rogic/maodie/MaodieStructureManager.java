@@ -2,20 +2,20 @@ package com.rogic.maodie;
 
 import com.rogic.LaowuMemeMod;
 import com.rogic.network.MaodieS2CPacket;
+import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.TamableAnimal;
-import net.minecraft.world.entity.animal.feline.Cat;
+import net.minecraft.world.entity.animal.Cat;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.entity.EntityTypeTest;
-import net.minecraft.core.Vec3i;
-import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -68,8 +68,8 @@ public final class MaodieStructureManager {
 		BlockPos min = center.offset(-r, -r, -r);
 		BlockPos max = center.offset(r, r, r);
 		for (BlockPos p : BlockPos.betweenClosed(min, max)) {
-			// 锚点方块 = 任意楼梯（蓝图 [4,1,0]，木种不限）。用注册表 id 后缀判定，避免 mojmap 下类名解析问题。
-			String blockId = BuiltInRegistries.BLOCK.getKey(level.getBlockState(p).getBlock()).toString();
+			// 锚点方块 = 任意楼梯（蓝图 [4,1,0]，木种不限）。用注册表 id 后缀判定。
+			String blockId = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(p).getBlock()).toString();
 			if (!blockId.endsWith("_stairs")) continue;
 			// 结构支持 4 向旋转：对每个候选锚点尝试 0/90/180/270°，任一匹配即识别成功。
 			for (int rot = 0; rot < 4; rot++) {
@@ -110,7 +110,7 @@ public final class MaodieStructureManager {
 		BlockPos seat = origin.offset(seatOff);
 		cat.teleportTo(seat.getX() + 0.5, seat.getY() + 1, seat.getZ() + 0.5);
 		// 切坐下姿势（用户要求），不冻结 AI；结构解除时恢复站立
-		cat.setOrderedToSit(true);
+		cat.setInSittingPose(true);
 		structures.put(origin, new MaodieBinding(origin, anchor, rot, cat.getId(), level.dimension()));
 		broadcast(level.getServer(), cat.getId(), true);
 		LaowuMemeMod.LOGGER.info("[maodie] 结构激活：召猫 {} 到楼梯 {} (rot={})", cat.getId(), anchor, rot);
@@ -121,16 +121,18 @@ public final class MaodieStructureManager {
 		ServerLevel level = server.getLevel(b.dimension);
 		if (level != null) {
 			net.minecraft.world.entity.Entity e = level.getEntity(b.catId);
-			if (e instanceof TamableAnimal ta) ta.setOrderedToSit(false);
+			if (e instanceof TamableAnimal ta) ta.setInSittingPose(false);
 		}
 		broadcast(server, b.catId, false);
 		LaowuMemeMod.LOGGER.info("[maodie] 结构解除：猫 {} 恢复自由", b.catId);
 	}
 
 	private static void broadcast(MinecraftServer server, int catId, boolean bound) {
-		MaodieS2CPacket pkt = new MaodieS2CPacket(catId, bound);
+		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+		MaodieS2CPacket.write(new MaodieS2CPacket(catId, bound), buf);
 		for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
-			ServerPlayNetworking.send(sp, pkt);
+			ServerPlayNetworking.send(sp, MaodieS2CPacket.ID, buf);
+			buf.readerIndex(0); // 重置读指针，复用 buffer
 		}
 	}
 

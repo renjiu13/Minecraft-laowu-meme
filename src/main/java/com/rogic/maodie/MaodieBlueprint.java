@@ -8,7 +8,7 @@ import com.rogic.LaowuMemeMod;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -31,8 +31,8 @@ import java.util.Map;
  * + 逐个状态属性（通用比较 String.valueOf(actualValue).equals(expected)，waterlogged/facing/half/open 等都覆盖）。
  * 活板门朝向(facing)放宽；楼梯等其他方块的朝向仍严格卡。不旋转。
  *
- * 锚点（用于反推结构原点的参照格）= 蓝图中楼梯 [4,1,0]（删蜡烛后以此楼梯反推原点）。
- * 猫座位（猫实际 teleport 落点）= 同一格 [4,1,0] 的【上方一格】（坐楼梯顶），与原点反推用同一楼梯。
+ * 锚点（用于反推结构原点的参照格）= 蓝图中楼梯 [4,1,0]。
+ * 猫座位（猫实际 teleport 落点）= 同一格 [4,1,0] 的【上方一格】（坐楼梯顶）。
  */
 public class MaodieBlueprint {
 	public static final String MAODIE_NAME = "耄耋";
@@ -40,7 +40,7 @@ public class MaodieBlueprint {
 	public static final int SCAN_INTERVAL = 20;
 	public static final double CALL_RADIUS = 10.0;
 	public static final double MAODIE_PROXIMITY_RADIUS = 5.0;
-	/** 猫座位参照（蓝图坐标，相对 origin [0,0,0]）。用户指定 [4,1,0]（一座楼梯），猫 teleport 到该格【上方一格】坐在楼梯顶。锚点也用同一格（删蜡烛后以此楼梯反推原点）。 */
+	/** 猫座位参照（蓝图坐标，相对 origin [0,0,0]）。用户指定 [4,1,0]（一座楼梯），猫 teleport 到该格【上方一格】坐在楼梯顶。锚点也用同一格。 */
 	public static final Vec3i SEAT_OFFSET = new Vec3i(4, 1, 0);
 
 	public static class Part {
@@ -75,7 +75,7 @@ public class MaodieBlueprint {
 			}
 			JsonObject root = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
 			List<Part> parts = new ArrayList<>();
-			// 锚点 = 蓝图 [4,1,0] 的楼梯（删蜡烛后以这座楼梯反推结构原点）；猫座位也用同一格
+			// 锚点 = 蓝图 [4,1,0] 的楼梯；猫座位也用同一格
 			Vec3i anchor = new Vec3i(4, 1, 0);
 
 			JsonArray arr = root.getAsJsonArray("parts");
@@ -165,7 +165,7 @@ public class MaodieBlueprint {
 			return actualId.endsWith(suffix);
 		}
 		// 无下划线 → 精确匹配（本蓝图不应走到这里）
-		Block expected = BuiltInRegistries.BLOCK.getValue(Identifier.parse(expectedId));
+		Block expected = BuiltInRegistries.BLOCK.get(ResourceLocation.tryParse(expectedId));
 		return expected != null && actual.getBlock() == expected;
 	}
 

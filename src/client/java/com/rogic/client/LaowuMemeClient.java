@@ -14,6 +14,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 /**
  * 客户端入口：只做收包 + 音频。
  * 锁定/移动/释放全部由服务端驱动，客户端不跑猫 AI、不挂 tick、不处理右键。
+ *
+ * 1.20.1 版本：使用旧版 ClientPlayNetworking.registerGlobalReceiver，
+ * 回调中手动从 FriendlyByteBuf 解码包数据。
  */
 public class LaowuMemeClient implements ClientModInitializer {
 	@Override
@@ -22,25 +25,42 @@ public class LaowuMemeClient implements ClientModInitializer {
 		ModSounds.init();
 		AudioPool.init();
 
-		ClientPlayNetworking.registerGlobalReceiver(MemeTriggerS2CPacket.TYPE, (packet, context) ->
-				ClientMemeState.get().onTrigger(packet.catAId(), packet.catBId(), packet.soundId(), packet.rollSign())
-		);
-		ClientPlayNetworking.registerGlobalReceiver(MemeStopS2CPacket.TYPE, (packet, context) ->
-				ClientMemeState.get().onStop(packet.catAId(), packet.catBId())
-		);
-		ClientPlayNetworking.registerGlobalReceiver(MaodieS2CPacket.TYPE, (packet, context) -> {
-			if (packet.bound()) {
-				ClientMemeState.get().onMaodieBind(packet.catId());
-				LaowuMemeMod.LOGGER.info("[maodie] 收到绑定包 catId={}", packet.catId());
-			} else {
-				ClientMemeState.get().onMaodieUnbind(packet.catId());
-				LaowuMemeMod.LOGGER.info("[maodie] 收到解除包 catId={}", packet.catId());
-			}
+		// 注册客户端网络包接收器
+		ClientPlayNetworking.registerGlobalReceiver(MemeTriggerS2CPacket.ID, (client, handler, buf, responseSender) -> {
+			MemeTriggerS2CPacket pkt = MemeTriggerS2CPacket.read(buf);
+			client.execute(() ->
+					ClientMemeState.get().onTrigger(pkt.catAId, pkt.catBId, pkt.soundId, pkt.rollSign)
+			);
 		});
+
+		ClientPlayNetworking.registerGlobalReceiver(MemeStopS2CPacket.ID, (client, handler, buf, responseSender) -> {
+			MemeStopS2CPacket pkt = MemeStopS2CPacket.read(buf);
+			client.execute(() ->
+					ClientMemeState.get().onStop(pkt.catAId, pkt.catBId)
+			);
+		});
+
+		ClientPlayNetworking.registerGlobalReceiver(MaodieS2CPacket.ID, (client, handler, buf, responseSender) -> {
+			MaodieS2CPacket pkt = MaodieS2CPacket.read(buf);
+			client.execute(() -> {
+				if (pkt.bound) {
+					ClientMemeState.get().onMaodieBind(pkt.catId);
+					LaowuMemeMod.LOGGER.info("[maodie] 收到绑定包 catId={}", pkt.catId);
+				} else {
+					ClientMemeState.get().onMaodieUnbind(pkt.catId);
+					LaowuMemeMod.LOGGER.info("[maodie] 收到解除包 catId={}", pkt.catId);
+				}
+			});
+		});
+
 		// 铲子拍扁：flat=true 压扁渲染，flat=false 恢复
-		ClientPlayNetworking.registerGlobalReceiver(FlatS2CPacket.TYPE, (packet, context) ->
-				ClientMemeState.get().onFlat(packet.catId(), packet.flat())
-		);
+		ClientPlayNetworking.registerGlobalReceiver(FlatS2CPacket.ID, (client, handler, buf, responseSender) -> {
+			FlatS2CPacket pkt = FlatS2CPacket.read(buf);
+			client.execute(() ->
+					ClientMemeState.get().onFlat(pkt.catId, pkt.flat)
+			);
+		});
+
 		// 每 tick 检查玩家是否靠近耄耋猫，进入半径则播放一次音频
 		ClientTickEvents.START_CLIENT_TICK.register(mc -> ClientMemeState.get().tickMaodieAudio());
 
