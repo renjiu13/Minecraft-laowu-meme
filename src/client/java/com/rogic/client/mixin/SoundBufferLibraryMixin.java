@@ -2,8 +2,8 @@ package com.rogic.client.mixin;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.sounds.AudioStream;
-import net.minecraft.client.sounds.JOrbisAudioStream;
 import net.minecraft.client.sounds.LoopingAudioStream;
+import net.minecraft.client.sounds.OggAudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
 import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
@@ -46,10 +46,10 @@ public class SoundBufferLibraryMixin {
 			InputStream in = Files.newInputStream(f.toPath());
 			AudioStream stream;
 			if (looping) {
-				LoopingAudioStream.AudioStreamProvider provider = (InputStream s) -> (AudioStream) (Object) new JOrbisAudioStream(s);
+				LoopingAudioStream.AudioStreamProvider provider = (InputStream s) -> (AudioStream) (Object) new OggAudioStream(s);
 				stream = (AudioStream) (Object) new LoopingAudioStream(provider, in);
 			} else {
-				stream = (AudioStream) (Object) new JOrbisAudioStream(in);
+				stream = (AudioStream) (Object) new OggAudioStream(in);
 			}
 			cir.setReturnValue(CompletableFuture.completedFuture(stream));
 		} catch (IOException | RuntimeException e) {
