@@ -27,6 +27,6 @@ public class ModSounds {
 
 	private static SoundEvent register(String name) {
 		ResourceLocation id = new ResourceLocation(LaowuMemeMod.MOD_ID, name);
-		return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.of(id));
+		return Registry.register(BuiltInRegistries.SOUND_EVENT, id, new SoundEvent(id));
 	}
 }

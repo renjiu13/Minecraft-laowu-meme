@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 
 import java.awt.Desktop;
 import java.awt.Toolkit;
@@ -39,13 +40,13 @@ public class LaowuConfigScreen extends Screen {
 		AudioPool.refreshImported();
 
 		// 标题
-		StringWidget title = new StringWidget(Component.literal("laowu meme 音频设置").withColor(0xFFFFFF), this.font);
+		StringWidget title = new StringWidget(Component.literal("laowu meme 音频设置").withStyle(Style.EMPTY.withColor(0xFFFFFF)), this.font);
 		title.setX(cx - title.getWidth() / 2);
 		title.setY(16);
 		this.addRenderableWidget(title);
 
 		// 提示
-		StringWidget hint = new StringWidget(Component.literal("点击切换启用/禁用；禁用项不会被随机播放").withColor(0xAAAAAA), this.font);
+		StringWidget hint = new StringWidget(Component.literal("点击切换启用/禁用；禁用项不会被随机播放").withStyle(Style.EMPTY.withColor(0xAAAAAA)), this.font);
 		hint.setX(cx - hint.getWidth() / 2);
 		hint.setY(38);
 		this.addRenderableWidget(hint);
@@ -88,7 +89,7 @@ public class LaowuConfigScreen extends Screen {
 	private static Component makeMsg(String name, boolean enabled) {
 		String prefix = enabled ? "✓ " : "✗ ";
 		int color = enabled ? 0x55FF55 : 0xFF7777;
-		return Component.literal(prefix + name).withColor(color);
+		return Component.literal(prefix + name).withStyle(Style.EMPTY.withColor(color));
 	}
 
 	private void openSoundsFolder() {
@@ -136,8 +137,8 @@ public class LaowuConfigScreen extends Screen {
 	}
 
 	private void notify(String msg) {
-		if (this.minecraft != null && this.minecraft.getToastManager() != null) {
-			this.minecraft.getToastManager().addToast(
+		if (this.minecraft != null && this.minecraft.toastManager != null) {
+			this.minecraft.toastManager.addToast(
 					new SystemToast(SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
 							Component.literal("laowu meme"), Component.literal(msg)));
 		}

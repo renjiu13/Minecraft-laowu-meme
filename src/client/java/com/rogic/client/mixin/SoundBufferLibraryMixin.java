@@ -55,7 +55,7 @@ public class SoundBufferLibraryMixin {
 		} catch (IOException | RuntimeException e) {
 			// 读取/解码失败：放行给原逻辑（按缺失资源处理），不崩溃；给玩家提示便于排查
 			System.out.println("[laowu meme] 导入音频解码失败（已忽略）：" + name + " —— " + e);
-			Minecraft.getInstance().getToastManager().addToast(
+			Minecraft.getInstance().toastManager.addToast(
 					new net.minecraft.client.gui.components.toasts.SystemToast(
 							net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
 							net.minecraft.network.chat.Component.literal("laowu meme"),
