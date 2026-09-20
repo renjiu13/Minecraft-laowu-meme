@@ -9,7 +9,7 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.entity.passive.CatEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

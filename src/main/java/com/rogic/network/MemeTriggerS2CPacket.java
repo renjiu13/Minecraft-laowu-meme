@@ -1,7 +1,7 @@
 package com.rogic.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Identifier;
 
 /**
  * 服务端 → 客户端：通知某两只猫进入锁定（对头）状态。
@@ -10,7 +10,7 @@ import net.minecraft.resources.ResourceLocation;
  * 1.20.1 版本：使用旧版 FriendlyByteBuf 手动编码/解码，不再用 CustomPacketPayload + StreamCodec。
  */
 public class MemeTriggerS2CPacket {
-	public static final ResourceLocation ID = new ResourceLocation("laowu_meme", "trigger");
+	public static final Identifier ID = new Identifier("laowu_meme", "trigger");
 
 	public final int catAId;
 	public final int catBId;

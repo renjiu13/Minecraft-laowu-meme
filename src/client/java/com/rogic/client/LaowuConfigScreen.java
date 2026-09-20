@@ -1,13 +1,13 @@
 package com.rogic.client;
 
 import com.rogic.client.sound.AudioPool;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.StringWidget;
-import net.minecraft.client.gui.components.toasts.SystemToast;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextWidget;
+import net.minecraft.client.toast.SystemToast;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.text.Text;
+import net.minecraft.text.Style;
 
 import java.awt.Desktop;
 import java.awt.Toolkit;
@@ -20,14 +20,14 @@ import java.io.IOException;
  * - 每条音频（固有 + 导入）都是一个可点击的 toggle 按钮：点击翻转「启用/禁用」，
  *   状态写入 config/laowu_meme/enabled.properties；禁用项不会被随机播放。
  * - 「打开音频文件夹」按钮：调系统文件管理器打开 config/laowu_meme/sounds/。
- * - 标题/提示用 StringWidget（AbstractWidget 子类，与按钮同一渲染管线，retained-mode 下可靠）。
+ * - 标题/提示用 TextWidget（AbstractWidget 子类，与按钮同一渲染管线，retained-mode 下可靠）。
  * - 布局：toggle 按钮逐行居中排布，底部「打开文件夹 / 返回」按钮与列表用留白隔开，不再叠字。
  */
 public class LaowuConfigScreen extends Screen {
 	private final Screen parent;
 
 	public LaowuConfigScreen(Screen parent) {
-		super(Component.literal("laowu meme 设置"));
+		super(Text.literal("laowu meme 设置"));
 		this.parent = parent;
 	}
 
@@ -40,13 +40,13 @@ public class LaowuConfigScreen extends Screen {
 		AudioPool.refreshImported();
 
 		// 标题
-		StringWidget title = new StringWidget(Component.literal("laowu meme 音频设置").withStyle(Style.EMPTY.withColor(0xFFFFFF)), this.font);
+		TextWidget title = new TextWidget(Text.literal("laowu meme 音频设置").withStyle(Style.EMPTY.withColor(0xFFFFFF)), this.font);
 		title.setX(cx - title.getWidth() / 2);
 		title.setY(16);
 		this.addRenderableWidget(title);
 
 		// 提示
-		StringWidget hint = new StringWidget(Component.literal("点击切换启用/禁用；禁用项不会被随机播放").withStyle(Style.EMPTY.withColor(0xAAAAAA)), this.font);
+		TextWidget hint = new TextWidget(Text.literal("点击切换启用/禁用；禁用项不会被随机播放").withStyle(Style.EMPTY.withColor(0xAAAAAA)), this.font);
 		hint.setX(cx - hint.getWidth() / 2);
 		hint.setY(38);
 		this.addRenderableWidget(hint);
@@ -70,26 +70,26 @@ public class LaowuConfigScreen extends Screen {
 		// 底部按钮：与列表留白隔开，避免叠字
 		int bottomY = this.height - 56;
 		if (bottomY < y + 12) bottomY = y + 12;
-		this.addRenderableWidget(Button.builder(Component.literal("打开音频文件夹"), b -> openSoundsFolder())
+		this.addRenderableWidget(ButtonWidget.builder(Text.literal("打开音频文件夹"), b -> openSoundsFolder())
 				.bounds(cx - 110, bottomY, 220, 20).build());
-		this.addRenderableWidget(Button.builder(Component.literal("返回"), b -> this.minecraft.setScreen(this.parent))
+		this.addRenderableWidget(ButtonWidget.builder(Text.literal("返回"), b -> this.client.setScreen(this.parent))
 				.bounds(cx - 110, bottomY + 26, 220, 20).build());
 	}
 
 	private void addToggle(String key, String displayName, int x, int y, int w) {
 		boolean enabled = AudioPool.isEnabled(key);
-		Component msg = makeMsg(displayName, enabled);
-		Button btn = Button.builder(msg, b -> {
+		Text msg = makeMsg(displayName, enabled);
+		Button btn = ButtonWidget.builder(msg, b -> {
 			boolean now = AudioPool.toggleEnabled(key);
 			b.setMessage(makeMsg(displayName, now));
 		}).bounds(x, y, w, 20).build();
 		this.addRenderableWidget(btn);
 	}
 
-	private static Component makeMsg(String name, boolean enabled) {
+	private static Text makeMsg(String name, boolean enabled) {
 		String prefix = enabled ? "✓ " : "✗ ";
 		int color = enabled ? 0x55FF55 : 0xFF7777;
-		return Component.literal(prefix + name).withStyle(Style.EMPTY.withColor(color));
+		return Text.literal(prefix + name).withStyle(Style.EMPTY.withColor(color));
 	}
 
 	private void openSoundsFolder() {
@@ -137,10 +137,10 @@ public class LaowuConfigScreen extends Screen {
 	}
 
 	private void notify(String msg) {
-		if (this.minecraft != null && this.minecraft.toastManager != null) {
-			this.minecraft.toastManager.addToast(
-					new SystemToast(SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-							Component.literal("laowu meme"), Component.literal(msg)));
+		if (this.client != null && this.client.toastManager != null) {
+			this.client.toastManager.addToast(
+					new SystemToast(SystemToast.Type.PERIODIC_NOTIFICATION,
+							Text.literal("laowu meme"), Text.literal(msg)));
 		}
 	}
 
@@ -152,6 +152,6 @@ public class LaowuConfigScreen extends Screen {
 	}
 
 	private static File getSoundsDir() {
-		return new File(Minecraft.getInstance().gameDirectory, "config/laowu_meme/sounds");
+		return new File(MinecraftClient.getInstance().runDirectory, "config/laowu_meme/sounds");
 	}
 }

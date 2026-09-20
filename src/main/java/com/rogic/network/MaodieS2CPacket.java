@@ -1,7 +1,7 @@
 package com.rogic.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Identifier;
 
 /**
  * 服务端 → 客户端：通知某只猫进入/退出耄耋绑定状态。
@@ -9,7 +9,7 @@ import net.minecraft.resources.ResourceLocation;
  * bound=false：结构破坏/猫消失，客户端停止渲染、猫恢复自由。
  */
 public class MaodieS2CPacket {
-	public static final ResourceLocation ID = new ResourceLocation("laowu_meme", "maodie");
+	public static final Identifier ID = new Identifier("laowu_meme", "maodie");
 
 	public final int catId;
 	public final boolean bound;

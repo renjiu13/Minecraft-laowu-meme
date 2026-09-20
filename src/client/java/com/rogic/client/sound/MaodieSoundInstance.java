@@ -2,12 +2,12 @@ package com.rogic.client.sound;
 
 import com.rogic.LaowuMemeMod;
 import com.rogic.client.sound.ModSounds;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
-import net.minecraft.client.resources.sounds.SoundInstance;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.sound.AbstractTickableSoundInstance;
+import net.minecraft.client.sound.SoundInstance;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.util.math.random.Random;
+import net.minecraft.entity.Entity;
 
 /**
  * 耄耋猫靠近时循环播放的「哈气」音效实例：跟随猫的位置，循环播放。
@@ -21,7 +21,7 @@ public class MaodieSoundInstance extends AbstractTickableSoundInstance {
 	private final int catId;
 
 	public MaodieSoundInstance(int catId) {
-		super(ModSounds.MAODIE, SoundSource.NEUTRAL, RandomSource.create());
+		super(ModSounds.MAODIE, SoundCategory.NEUTRAL, Random.create());
 		this.catId = catId;
 		this.looping = true;
 		this.delay = 0;
@@ -39,9 +39,9 @@ public class MaodieSoundInstance extends AbstractTickableSoundInstance {
 
 	/** 跟随目标猫；猫消失/无效则停。 */
 	private boolean updatePos() {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null) return false;
-		Entity e = mc.level.getEntity(catId);
+		Minecraft mc = MinecraftClient.getInstance();
+		if (mc.world == null) return false;
+		Entity e = mc.world.getEntity(catId);
 		if (e == null) return false;
 		this.x = e.getX();
 		this.y = e.getY();

@@ -1,14 +1,14 @@
 package com.rogic.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Identifier;
 
 /**
  * 服务端 → 客户端：通知某两只猫结束锁定状态（右键释放 / 猫消失）。
  * 客户端据此停止歪头渲染与音乐。
  */
 public class MemeStopS2CPacket {
-	public static final ResourceLocation ID = new ResourceLocation("laowu_meme", "stop");
+	public static final Identifier ID = new Identifier("laowu_meme", "stop");
 
 	public final int catAId;
 	public final int catBId;

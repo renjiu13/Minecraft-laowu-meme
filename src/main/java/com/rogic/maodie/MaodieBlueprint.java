@@ -5,13 +5,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.rogic.LaowuMemeMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.Vec3di;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.Identifier;
 import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
 import java.io.InputStream;
@@ -41,15 +41,15 @@ public class MaodieBlueprint {
 	public static final double CALL_RADIUS = 10.0;
 	public static final double MAODIE_PROXIMITY_RADIUS = 5.0;
 	/** 猫座位参照（蓝图坐标，相对 origin [0,0,0]）。用户指定 [4,1,0]（一座楼梯），猫 teleport 到该格【上方一格】坐在楼梯顶。锚点也用同一格。 */
-	public static final Vec3i SEAT_OFFSET = new Vec3i(4, 1, 0);
+	public static final Vec3di SEAT_OFFSET = new Vec3di(4, 1, 0);
 
 	public static class Part {
-		public final Vec3i offset;
+		public final Vec3di offset;
 		public final String block;
 		public final Map<String, String> state;
 
 		public Part(int x, int y, int z, String block, Map<String, String> state) {
-			this.offset = new Vec3i(x, y, z);
+			this.offset = new Vec3di(x, y, z);
 			this.block = block;
 			this.state = state;
 		}
@@ -57,11 +57,11 @@ public class MaodieBlueprint {
 
 	public final List<Part> parts;
 	/** 锚点：反推结构原点用的参照（楼梯 [4,1,0]）。猫座位也用同一格的【上方一格】。 */
-	public final Vec3i anchorOffset;
+	public final Vec3di anchorOffset;
 	/** 猫座位：猫实际落点（相对 origin）。 */
-	public final Vec3i seatOffset;
+	public final Vec3di seatOffset;
 
-	private MaodieBlueprint(List<Part> parts, Vec3i anchor, Vec3i seat) {
+	private MaodieBlueprint(List<Part> parts, Vec3di anchor, Vec3di seat) {
 		this.parts = parts;
 		this.anchorOffset = anchor;
 		this.seatOffset = seat;
@@ -76,7 +76,7 @@ public class MaodieBlueprint {
 			JsonObject root = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
 			List<Part> parts = new ArrayList<>();
 			// 锚点 = 蓝图 [4,1,0] 的楼梯；猫座位也用同一格
-			Vec3i anchor = new Vec3i(4, 1, 0);
+			Vec3di anchor = new Vec3di(4, 1, 0);
 
 			JsonArray arr = root.getAsJsonArray("parts");
 			if (arr != null) {
@@ -110,7 +110,7 @@ public class MaodieBlueprint {
 	 * 活板门朝向(facing)放宽（任意摆）；楼梯朝向随结构旋转一起旋转后严格卡（锚点靠楼梯朝向防误激活）。 */
 	public boolean matches(BlockGetter world, BlockPos origin, int rot) {
 		for (Part p : parts) {
-			Vec3i ro = rotateOffset(p.offset, rot);
+			Vec3di ro = rotateOffset(p.offset, rot);
 			BlockPos wp = origin.offset(ro);
 			BlockState actual = world.getBlockState(wp);
 			// 木系通用匹配：只比对方块类型后缀，忽略木种前缀
@@ -132,13 +132,13 @@ public class MaodieBlueprint {
 	}
 
 	/** 绕 Y 轴逆时针旋转 rot×90° 的偏移变换（与楼梯 facing 旋转一致）。 */
-	public static Vec3i rotateOffset(Vec3i off, int rot) {
+	public static Vec3di rotateOffset(Vec3di off, int rot) {
 		int x = off.getX(), y = off.getY(), z = off.getZ();
 		switch (rot & 3) {
 			case 0: return off;
-			case 1: return new Vec3i(z, y, -x);
-			case 2: return new Vec3i(-x, y, -z);
-			default: return new Vec3i(-z, y, x); // case 3
+			case 1: return new Vec3di(z, y, -x);
+			case 2: return new Vec3di(-x, y, -z);
+			default: return new Vec3di(-z, y, x); // case 3
 		}
 	}
 
@@ -161,11 +161,11 @@ public class MaodieBlueprint {
 		int lastUs = expectedId.lastIndexOf('_');
 		if (lastUs > 0) {
 			String suffix = expectedId.substring(lastUs); // e.g. "_stairs"
-			String actualId = BuiltInRegistries.BLOCK.getKey(actual.getBlock()).toString();
+			String actualId = Registries.BLOCK.getKey(actual.getBlock()).toString();
 			return actualId.endsWith(suffix);
 		}
 		// 无下划线 → 精确匹配（本蓝图不应走到这里）
-		Block expected = BuiltInRegistries.BLOCK.get(ResourceLocation.tryParse(expectedId));
+		Block expected = Registries.BLOCK.get(Identifier.tryParse(expectedId));
 		return expected != null && actual.getBlock() == expected;
 	}
 

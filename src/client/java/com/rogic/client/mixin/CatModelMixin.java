@@ -3,11 +3,11 @@ package com.rogic.client.mixin;
 import com.rogic.LaowuMemeMod;
 import com.rogic.client.ClientMemeState;
 import com.rogic.maodie.MaodieBlueprint;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.CatModel;
-import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.world.entity.animal.Cat;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.entity.model.CatEntityModel;
+import net.minecraft.client.model.ModelPart;
+import net.minecraft.entity.passive.CatEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,10 +19,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *  - 耄耋猫：猫转头盯最近的玩家（head.yRot/xRot），同样放 TAIL 避免被原版覆盖。
  *
  * 1.20.1 版本：直接从 ClientMemeState 按 entity id 读取状态（没有 RenderState 系统）。
- * 目标类是 CatModel（1.20.1 不分 Adult/Baby FelineModel，统一是 CatModel）。
+ * 目标类是 CatEntityModel（1.20.1 不分 Adult/Baby FelineModel，统一是 CatEntityModel）。
  */
-@Mixin(CatModel.class)
-public class CatModelMixin {
+@Mixin(CatEntityModel.class)
+public class CatEntityModelMixin {
 
 	/** 歪头角度：45°，roll 为 ±1，相乘得镜像歪头 */
 	private static final float HEAD_ROLL = (float) (Math.PI / 4.0);
@@ -43,8 +43,8 @@ public class CatModelMixin {
 	/** 拍扁"X"形：四肢拉长倍数 */
 	private static final float FLAT_LEG_STRETCH = 3.0f;
 
-	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/animal/Cat;FFFFF)V", at = @At("TAIL"), require = 0)
-	private void laowuTilt(Cat cat, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+	@Inject(method = "setAngles(Lnet/minecraft/entity/passive/CatEntity;FFFFF)V", at = @At("TAIL"), require = 0)
+	private void laowuTilt(CatEntity cat, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
 		try {
 			ClientMemeState cs = ClientMemeState.get();
 			int id = cat.getId();
@@ -54,7 +54,7 @@ public class CatModelMixin {
 			boolean flat = cs.isFlattened(id);
 
 			// 通过 root 获取各部件
-			ModelPart root = ((CatModel) (Object) this).root();
+			ModelPart root = ((CatEntityModel) (Object) this).root();
 			if (root == null) {
 				return;
 			}
@@ -93,13 +93,13 @@ public class CatModelMixin {
 			if (maodieBound) {
 				ModelPart head = root.getChild("head");
 				if (head != null) {
-					Minecraft mc = Minecraft.getInstance();
-					if (mc.level != null) {
+					Minecraft mc = MinecraftClient.getInstance();
+					if (mc.world != null) {
 						double cx = cat.getX(), cy = cat.getY(), cz = cat.getZ();
 						double best = Double.MAX_VALUE;
 						Player nearest = null;
-						for (Player p : mc.level.players()) {
-							double d = p.distanceToSqr(cx, cy, cz);
+						for (Player p : mc.world.players()) {
+							double d = p.squaredDistanceTo(cx, cy, cz);
 							if (d < best) { best = d; nearest = p; }
 						}
 						if (nearest != null) {

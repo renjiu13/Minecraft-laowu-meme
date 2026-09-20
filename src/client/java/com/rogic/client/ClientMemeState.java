@@ -7,11 +7,11 @@ import com.rogic.client.sound.MaodieSoundInstance;
 import com.rogic.client.sound.MemeSoundInstance;
 import com.rogic.client.sound.ModSounds;
 import com.rogic.maodie.MaodieBlueprint;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.SoundInstance;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.sound.SoundInstance;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.Vec3dd;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -68,15 +68,15 @@ public class ClientMemeState {
 	 * 离开范围即停止，直到再次进入才重新起播。
 	 */
 	public void tickMaodieAudio() {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null) return;
+		Minecraft mc = MinecraftClient.getInstance();
+		if (mc.player == null || mc.world == null) return;
 		Player player = mc.player;
 		double r = MaodieBlueprint.MAODIE_PROXIMITY_RADIUS;
 		// 复制 keySet 避免迭代中改动 map
 		for (int catId : new HashSet<>(maodieBound.keySet())) {
-			Entity e = mc.level.getEntity(catId);
+			Entity e = mc.world.getEntity(catId);
 			if (e == null) { stopMaodieSound(catId); continue; }
-			boolean near = player.distanceToSqr(e.position()) <= r * r;
+			boolean near = player.squaredDistanceTo(e.position()) <= r * r;
 			MaodieSoundInstance inst = maodieSounds.get(catId);
 			if (near && inst == null) {
 				startMaodieSound(catId);
@@ -88,8 +88,8 @@ public class ClientMemeState {
 
 	/** 起一个跟随猫的循环哈气音效。 */
 	private void startMaodieSound(int catId) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null || mc.player == null) return;
+		Minecraft mc = MinecraftClient.getInstance();
+		if (mc.world == null || mc.player == null) return;
 		MaodieSoundInstance inst = new MaodieSoundInstance(catId);
 		maodieSounds.put(catId, inst);
 		mc.getSoundManager().play(inst);
@@ -100,7 +100,7 @@ public class ClientMemeState {
 	private void stopMaodieSound(int catId) {
 		MaodieSoundInstance inst = maodieSounds.remove(catId);
 		if (inst != null) {
-			Minecraft.getInstance().getSoundManager().stop(inst);
+			MinecraftClient.getInstance().getSoundManager().stop(inst);
 			LaowuMemeMod.LOGGER.info("[maodie] 停循环哈气音效 catId={}", catId);
 		}
 	}
@@ -130,9 +130,9 @@ public class ClientMemeState {
 	private String key(int a, int b) { return Math.min(a, b) + "-" + Math.max(a, b); }
 
 	private void startSound(int catAId, int catBId, int soundId) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null) return;
-		Vec3 mid = midOf(catAId, catBId);
+		Minecraft mc = MinecraftClient.getInstance();
+		if (mc.player == null || mc.world == null) return;
+		Vec3d mid = midOf(catAId, catBId);
 		if (mid == null) return;
 		// 不再用 >16 格硬限制：只要猫在配对就起播，音量交给 MC 自身衰减
 		// （导入音频衰减 16 格 / 固有音频默认衰减）。之前 >16 不播放是「整活却没声」的主因。
@@ -151,13 +151,13 @@ public class ClientMemeState {
 
 	private void stopSound(int catAId, int catBId) {
 		SoundInstance inst = sounds.remove(key(catAId, catBId));
-		if (inst != null) Minecraft.getInstance().getSoundManager().stop(inst);
+		if (inst != null) MinecraftClient.getInstance().getSoundManager().stop(inst);
 	}
 
-	private Vec3 midOf(int a, int b) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null) return null;
-		Entity ea = mc.level.getEntity(a), eb = mc.level.getEntity(b);
+	private Vec3d midOf(int a, int b) {
+		Minecraft mc = MinecraftClient.getInstance();
+		if (mc.world == null) return null;
+		Entity ea = mc.world.getEntity(a), eb = mc.world.getEntity(b);
 		if (ea == null || eb == null) return null;
 		return ea.position().add(eb.position()).scale(0.5);
 	}

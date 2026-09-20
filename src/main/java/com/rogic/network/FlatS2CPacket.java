@@ -1,14 +1,14 @@
 package com.rogic.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Identifier;
 
 /**
  * 服务端 → 客户端：通知某只猫进入/退出「铲子拍扁」扁平态。
  * flat=true：猫被铲子拍扁（渲染 scale.y 压缩）；flat=false：8 秒到自动恢复原状。
  */
 public class FlatS2CPacket {
-	public static final ResourceLocation ID = new ResourceLocation("laowu_meme", "flat");
+	public static final Identifier ID = new Identifier("laowu_meme", "flat");
 
 	public final int catId;
 	public final boolean flat;

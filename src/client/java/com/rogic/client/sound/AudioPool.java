@@ -1,6 +1,6 @@
 package com.rogic.client.sound;
 
-import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sound.SoundEvent;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -11,13 +11,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 /**
  * 客户端本地音频池：管理「可随机播放」的音频集合 + 每条音频的启用/禁用状态。
  * - 固有音频：三段注册表 SoundEvent（[那个那个]/[老吴凄凉]/[战吼]），开箱即用、零操作。
  * - 用户导入：扫描 config/laowu_meme/sounds/*.ogg，触发整活时与固有音频一起随机播放，
- *   直接从磁盘读取（无需 F3+T、不进资源包，由 SoundBufferLibraryMixin 提供字节流）。
+ *   直接从磁盘读取（无需 F3+T、不进资源包，由 SoundLibraryMixin 提供字节流）。
  * - 启用/禁用：每条音频可单独启用或禁用，状态持久化到 enabled.properties；
  *   random() 只从启用条目里抽，确保禁用条目永不会被随机出来。
  *
@@ -156,7 +156,7 @@ public class AudioPool {
 	}
 
 	public static File getConfigDir() {
-		return new File(Minecraft.getInstance().gameDirectory, "config/laowu_meme");
+		return new File(MinecraftClient.getInstance().runDirectory, "config/laowu_meme");
 	}
 
 	private static String stripExt(String name) {

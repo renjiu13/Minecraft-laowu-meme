@@ -4,17 +4,17 @@ import com.rogic.LaowuMemeMod;
 import com.rogic.network.MaodieS2CPacket;
 import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.Vec3di;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.network.ServerPlayerEntityEntity;
+import net.minecraft.entity.Entity;
 import net.minecraft.world.entity.TamableAnimal;
-import net.minecraft.world.entity.animal.Cat;
-import net.minecraft.world.level.Level;
+import net.minecraft.entity.passive.CatEntity;
+import net.minecraft.world.World;
 import net.minecraft.world.level.entity.EntityTypeTest;
 
 import java.util.HashMap;
@@ -46,7 +46,7 @@ public final class MaodieStructureManager {
 		Iterator<Map.Entry<BlockPos, MaodieBinding>> it = structures.entrySet().iterator();
 		while (it.hasNext()) {
 			MaodieBinding b = it.next().getValue();
-			ServerLevel level = server.getLevel(b.dimension);
+			ServerWorld level = server.getLevel(b.dimension);
 			if (level == null || !blueprint.matches(level, b.origin, b.rot) || level.getEntity(b.catId) == null) {
 				release(b, server);
 				it.remove();
@@ -56,24 +56,24 @@ public final class MaodieStructureManager {
 		scanCounter++;
 		if (scanCounter % MaodieBlueprint.SCAN_INTERVAL != 0) return;
 
-		for (ServerLevel level : server.getAllLevels()) {
-			for (ServerPlayer sp : level.players()) {
+		for (ServerWorld level : server.getAllLevels()) {
+			for (ServerPlayerEntity sp : level.players()) {
 				scanAround(level, sp.blockPosition());
 			}
 		}
 	}
 
-	private static void scanAround(ServerLevel level, BlockPos center) {
+	private static void scanAround(ServerWorld level, BlockPos center) {
 		int r = MaodieBlueprint.SCAN_RADIUS;
 		BlockPos min = center.offset(-r, -r, -r);
 		BlockPos max = center.offset(r, r, r);
 		for (BlockPos p : BlockPos.betweenClosed(min, max)) {
 			// 锚点方块 = 任意楼梯（蓝图 [4,1,0]，木种不限）。用注册表 id 后缀判定。
-			String blockId = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(p).getBlock()).toString();
+			String blockId = net.minecraft.registry.Registries.BLOCK.getKey(level.getBlockState(p).getBlock()).toString();
 			if (!blockId.endsWith("_stairs")) continue;
 			// 结构支持 4 向旋转：对每个候选锚点尝试 0/90/180/270°，任一匹配即识别成功。
 			for (int rot = 0; rot < 4; rot++) {
-				Vec3i ra = MaodieBlueprint.rotateOffset(blueprint.anchorOffset, rot);
+				Vec3di ra = MaodieBlueprint.rotateOffset(blueprint.anchorOffset, rot);
 				BlockPos origin = p.offset(-ra.getX(), -ra.getY(), -ra.getZ());
 				if (structures.containsKey(origin)) continue;
 				if (blueprint.matches(level, origin, rot)) {
@@ -87,7 +87,7 @@ public final class MaodieStructureManager {
 		}
 	}
 
-	private static Cat findCat(ServerLevel level, BlockPos anchor) {
+	private static Cat findCat(ServerWorld level, BlockPos anchor) {
 		double best = MaodieBlueprint.CALL_RADIUS * MaodieBlueprint.CALL_RADIUS;
 		Cat bestCat = null;
 		EntityTypeTest<Entity, Cat> test = EntityTypeTest.forClass(Cat.class);
@@ -98,15 +98,15 @@ public final class MaodieStructureManager {
 			return true;
 		});
 		for (Cat c : cats) {
-			double d = c.distanceToSqr(anchor.getX() + 0.5, anchor.getY() + 0.5, anchor.getZ() + 0.5);
+			double d = c.squaredDistanceTo(anchor.getX() + 0.5, anchor.getY() + 0.5, anchor.getZ() + 0.5);
 			if (d <= best) { best = d; bestCat = c; }
 		}
 		return bestCat;
 	}
 
-	private static void bind(ServerLevel level, BlockPos anchor, BlockPos origin, int rot, Cat cat) {
+	private static void bind(ServerWorld level, BlockPos anchor, BlockPos origin, int rot, Cat cat) {
 		// 猫落到「座位」格的【上方一格】：座位 = 楼梯 [4,1,0]（随旋转变换），猫坐楼梯顶
-		Vec3i seatOff = MaodieBlueprint.rotateOffset(blueprint.seatOffset, rot);
+		Vec3di seatOff = MaodieBlueprint.rotateOffset(blueprint.seatOffset, rot);
 		BlockPos seat = origin.offset(seatOff);
 		cat.teleportTo(seat.getX() + 0.5, seat.getY() + 1, seat.getZ() + 0.5);
 		// 切坐下姿势（用户要求），不冻结 AI；结构解除时恢复站立
@@ -118,9 +118,9 @@ public final class MaodieStructureManager {
 
 	private static void release(MaodieBinding b, MinecraftServer server) {
 		// 解除时让猫恢复站立（取消坐下），AI 正常运行
-		ServerLevel level = server.getLevel(b.dimension);
+		ServerWorld level = server.getLevel(b.dimension);
 		if (level != null) {
-			net.minecraft.world.entity.Entity e = level.getEntity(b.catId);
+			net.minecraft.entity.Entity e = level.getEntity(b.catId);
 			if (e instanceof TamableAnimal ta) ta.setInSittingPose(false);
 		}
 		broadcast(server, b.catId, false);
@@ -130,7 +130,7 @@ public final class MaodieStructureManager {
 	private static void broadcast(MinecraftServer server, int catId, boolean bound) {
 		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
 		MaodieS2CPacket.write(new MaodieS2CPacket(catId, bound), buf);
-		for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
+		for (ServerPlayerEntity sp : server.getPlayerList().getPlayers()) {
 			ServerPlayNetworking.send(sp, MaodieS2CPacket.ID, buf);
 			buf.readerIndex(0); // 重置读指针，复用 buffer
 		}

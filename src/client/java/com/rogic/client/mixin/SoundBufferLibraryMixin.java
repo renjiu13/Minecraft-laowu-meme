@@ -1,10 +1,10 @@
 package com.rogic.client.mixin;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.sounds.AudioStream;
-import net.minecraft.client.sounds.LoopingAudioStream;
-import net.minecraft.client.sounds.SoundBufferLibrary;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.sound.AudioStream;
+import net.minecraft.client.sound.LoopingAudioStream;
+import net.minecraft.client.sound.SoundLibrary;
+import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -23,13 +23,13 @@ import com.rogic.client.sound.SoundIdCodec;
  * 拦截 laowu_meme:sounds/imported/<hex名>.ogg 的资源读取，hex 解码出真实文件名后直接从
  * config/laowu_meme/sounds/<名>.ogg 读取并用 JOrbis 解码，使导入音频无需进资源包即可播放。
  *
- * 1.20.1 版本：使用 ResourceLocation 而非 Identifier。
+ * 1.20.1 版本：使用 Identifier 而非 Identifier。
  */
-@Mixin(SoundBufferLibrary.class)
+@Mixin(SoundLibrary.class)
 public class SoundBufferLibraryMixin {
-	@Inject(method = "getStream(Lnet/minecraft/resources/ResourceLocation;Z)Ljava/util/concurrent/CompletableFuture;",
+	@Inject(method = "getStream(Lnet/minecraft/util/Identifier;Z)Ljava/util/concurrent/CompletableFuture;",
 			at = @At("HEAD"), cancellable = true)
-	private void laowuInterceptImportedStream(ResourceLocation id, boolean looping, CallbackInfoReturnable<CompletableFuture<AudioStream>> cir) {
+	private void laowuInterceptImportedStream(Identifier id, boolean looping, CallbackInfoReturnable<CompletableFuture<AudioStream>> cir) {
 		if (!id.getNamespace().equals("laowu_meme")) return;
 		String path = id.getPath();
 		// SoundEngine.play 调用 getStream 时传入的是 Sound.getPath() 结果：
@@ -40,7 +40,7 @@ public class SoundBufferLibraryMixin {
 		String hex = enc.endsWith(".ogg") ? enc.substring(0, enc.length() - 4) : enc;
 		String name = SoundIdCodec.decode(hex);
 		if (name.isEmpty()) return;
-		File f = new File(Minecraft.getInstance().gameDirectory, "config/laowu_meme/sounds/" + name + ".ogg");
+		File f = new File(MinecraftClient.getInstance().runDirectory, "config/laowu_meme/sounds/" + name + ".ogg");
 		if (!f.isFile()) return;
 		try {
 			InputStream in = Files.newInputStream(f.toPath());
@@ -55,11 +55,11 @@ public class SoundBufferLibraryMixin {
 		} catch (IOException | RuntimeException e) {
 			// 读取/解码失败：放行给原逻辑（按缺失资源处理），不崩溃；给玩家提示便于排查
 			System.out.println("[laowu meme] 导入音频解码失败（已忽略）：" + name + " —— " + e);
-			Minecraft.getInstance().toastManager.addToast(
-					new net.minecraft.client.gui.components.toasts.SystemToast(
-							net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-							net.minecraft.network.chat.Component.literal("laowu meme"),
-							net.minecraft.network.chat.Component.literal("导入音频解码失败：" + name)));
+			MinecraftClient.getInstance().toastManager.addToast(
+					new net.minecraft.client.toast.SystemToast(
+							net.minecraft.client.toast.SystemToast.Type.PERIODIC_NOTIFICATION,
+							net.minecraft.text.Text.literal("laowu meme"),
+							net.minecraft.text.Text.literal("导入音频解码失败：" + name)));
 		}
 	}
 }

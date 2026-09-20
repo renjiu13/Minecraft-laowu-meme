@@ -7,14 +7,14 @@ import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.animal.Cat;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.network.ServerPlayerEntityEntity;
+import net.minecraft.util.Hand;
+import net.minecraft.entity.passive.CatEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.level.entity.EntityTypeTest;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.Vec3dd;
 import net.minecraft.world.InteractionResult;
 
 import java.util.*;
@@ -80,7 +80,7 @@ public final class ServerMemeManager {
 	}
 
 	/** 右键猫（带玩家与手）→ 手持铲子则拍扁；否则若在某配对中则释放 */
-	public static InteractionResult onRightClick(Cat cat, Player player, InteractionHand hand) {
+	public static InteractionResult onRightClick(Cat cat, Player player, Hand hand) {
 		if (cat == null) return InteractionResult.PASS;
 		LaowuMemeMod.LOGGER.info("[laowu meme] onRightClick: cat={} player={} hand={} item={}",
 				cat.getId(), player != null ? player.getName().getString() : "null", hand,
@@ -107,7 +107,7 @@ public final class ServerMemeManager {
 	/** 铲子拍扁：解除对头/耄耋状态，进入扁平态（客户端渲染压扁），8 秒后自动恢复 */
 	public static void flattenCat(Cat cat) {
 		// 服务端守卫：单机/集成服务器下 UseEntityCallback 在客户端线程也会触发
-		if (!(cat.level() instanceof ServerLevel)) return;
+		if (!(cat.getWorld() instanceof ServerWorld)) return;
 		// 解除对头配对（若有）
 		MemePair p = findPair(cat.getUUID());
 		if (p != null) {
@@ -117,10 +117,10 @@ public final class ServerMemeManager {
 		// 解除耄耋绑定（若有）——由 MaodieStructureManager 处理，这里只通知客户端恢复
 		int id = cat.getId();
 		if (!flattened.containsKey(id)) {
-			flattened.put(id, (long) (cat.level() instanceof ServerLevel sl ? sl.getServer().getTickCount() : 0));
-			MinecraftServer server = cat.level() instanceof ServerLevel sl2 ? sl2.getServer() : null;
+			flattened.put(id, (long) (cat.getWorld() instanceof ServerWorld sl ? sl.getServer().getTickCount() : 0));
+			MinecraftServer server = cat.getWorld() instanceof ServerWorld sl2 ? sl2.getServer() : null;
 			if (server != null) {
-				for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
+				for (ServerPlayerEntity sp : server.getPlayerList().getPlayers()) {
 					sendFlatPacket(sp, id, true);
 				}
 			}
@@ -130,7 +130,7 @@ public final class ServerMemeManager {
 
 	/** 扁平态到期恢复 */
 	private static void restoreFlat(MinecraftServer server, int catId) {
-		for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
+		for (ServerPlayerEntity sp : server.getPlayerList().getPlayers()) {
 			sendFlatPacket(sp, catId, false);
 		}
 		LaowuMemeMod.LOGGER.info("[laowu meme] 拍扁恢复：catId={}", catId);
@@ -139,7 +139,7 @@ public final class ServerMemeManager {
 	// ---- 内部 ----
 
 	private static void scan(MinecraftServer server) {
-		for (ServerLevel level : server.getAllLevels()) {
+		for (ServerWorld level : server.getAllLevels()) {
 			List<? extends Cat> cats = level.getEntities(EntityTypeTest.forClass(Cat.class), c -> true);
 			Set<UUID> used = new HashSet<>();
 			for (Cat laowu : cats) {
@@ -153,7 +153,7 @@ public final class ServerMemeManager {
 					if (c == laowu) continue;
 					UUID cid = c.getUUID();
 					if (used.contains(cid) || isActive(cid) || onCooldown(cid)) continue;
-					double d = laowu.distanceToSqr(c);
+					double d = laowu.squaredDistanceTo(c);
 					if (d <= best) { best = d; partner = c; }
 				}
 				if (partner != null) {
@@ -178,8 +178,8 @@ public final class ServerMemeManager {
 			if (c == null || c.isRemoved()) continue;
 			c.setNoAi(false);
 			if (giveKnockback) {
-				Vec3 away = new Vec3(c.getX() - p.other(c).getX(), 0, c.getZ() - p.other(c).getZ());
-				if (away.lengthSqr() < 1e-4) away = new Vec3(c.getRandom().nextDouble() - 0.5, 0, c.getRandom().nextDouble() - 0.5);
+				Vec3d away = new Vec3d(c.getX() - p.other(c).getX(), 0, c.getZ() - p.other(c).getZ());
+				if (away.lengthSqr() < 1e-4) away = new Vec3d(c.getRandom().nextDouble() - 0.5, 0, c.getRandom().nextDouble() - 0.5);
 				away = away.normalize().scale(0.35);
 				c.setDeltaMovement(away);
 			}
@@ -194,33 +194,33 @@ public final class ServerMemeManager {
 
 	private static void broadcastStop(MemePair p) {
 		MemeStopS2CPacket pkt = new MemeStopS2CPacket(p.catAId, p.catBId);
-		for (ServerPlayer sp : p.server().getPlayerList().getPlayers()) {
+		for (ServerPlayerEntity sp : p.server().getPlayerList().getPlayers()) {
 			sendStopPacket(sp, pkt);
 		}
 	}
 
 	private static void broadcastTrigger(MemePair p) {
 		MemeTriggerS2CPacket pkt = new MemeTriggerS2CPacket(p.catAId, p.catBId, p.soundId, p.rollSign);
-		for (ServerPlayer sp : p.server().getPlayerList().getPlayers()) {
+		for (ServerPlayerEntity sp : p.server().getPlayerList().getPlayers()) {
 			sendTriggerPacket(sp, pkt);
 		}
 	}
 
 	// ---- 网络包发送辅助 ----
 
-	private static void sendTriggerPacket(ServerPlayer player, MemeTriggerS2CPacket pkt) {
+	private static void sendTriggerPacket(ServerPlayerEntity player, MemeTriggerS2CPacket pkt) {
 		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
 		MemeTriggerS2CPacket.write(pkt, buf);
 		ServerPlayNetworking.send(player, MemeTriggerS2CPacket.ID, buf);
 	}
 
-	private static void sendStopPacket(ServerPlayer player, MemeStopS2CPacket pkt) {
+	private static void sendStopPacket(ServerPlayerEntity player, MemeStopS2CPacket pkt) {
 		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
 		MemeStopS2CPacket.write(pkt, buf);
 		ServerPlayNetworking.send(player, MemeStopS2CPacket.ID, buf);
 	}
 
-	private static void sendFlatPacket(ServerPlayer player, int catId, boolean flat) {
+	private static void sendFlatPacket(ServerPlayerEntity player, int catId, boolean flat) {
 		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
 		FlatS2CPacket.write(new FlatS2CPacket(catId, flat), buf);
 		ServerPlayNetworking.send(player, FlatS2CPacket.ID, buf);
@@ -255,7 +255,7 @@ public final class ServerMemeManager {
 			this.rollSign = rollSign; this.soundId = soundId;
 		}
 
-		MinecraftServer server() { return catA.level().getServer(); }
+		MinecraftServer server() { return catA.getWorld().getServer(); }
 		boolean has(UUID id) { return catA.getUUID().equals(id) || catB.getUUID().equals(id); }
 		boolean alive() { return !catA.isRemoved() && !catB.isRemoved() && catA.isAlive() && catB.isAlive(); }
 		Cat other(Cat c) { return c == catA ? catB : catA; }
@@ -269,14 +269,14 @@ public final class ServerMemeManager {
 			catA.setNoAi(true); catB.setNoAi(true);
 			catA.setOnGround(true); catB.setOnGround(true);
 
-			Vec3 pa = catA.position(), pb = catB.position();
-			Vec3 mid = pa.add(pb).scale(0.5);
-			Vec3 dirAB = new Vec3(pb.x - pa.x, 0, pb.z - pa.z);
-			if (dirAB.lengthSqr() < 1e-4) dirAB = new Vec3(1, 0, 0);
+			Vec3d pa = catA.position(), pb = catB.position();
+			Vec3d mid = pa.add(pb).scale(0.5);
+			Vec3d dirAB = new Vec3d(pb.x - pa.x, 0, pb.z - pa.z);
+			if (dirAB.lengthSqr() < 1e-4) dirAB = new Vec3d(1, 0, 0);
 			else dirAB = dirAB.normalize();
 
-			Vec3 targetA = mid.add(dirAB.scale(-SPLIT));
-			Vec3 targetB = mid.add(dirAB.scale(SPLIT));
+			Vec3d targetA = mid.add(dirAB.scale(-SPLIT));
+			Vec3d targetB = mid.add(dirAB.scale(SPLIT));
 
 			moveToward(catA, targetA);
 			moveToward(catB, targetB);
@@ -293,23 +293,23 @@ public final class ServerMemeManager {
 			catA.setNoAi(true); catB.setNoAi(true);
 			catA.setOnGround(true); catB.setOnGround(true);
 
-			Vec3 pa = catA.position(), pb = catB.position();
-			Vec3 mid = pa.add(pb).scale(0.5);
-			Vec3 dirAB = new Vec3(pb.x - pa.x, 0, pb.z - pa.z);
-			if (dirAB.lengthSqr() < 1e-4) dirAB = new Vec3(1, 0, 0);
+			Vec3d pa = catA.position(), pb = catB.position();
+			Vec3d mid = pa.add(pb).scale(0.5);
+			Vec3d dirAB = new Vec3d(pb.x - pa.x, 0, pb.z - pa.z);
+			if (dirAB.lengthSqr() < 1e-4) dirAB = new Vec3d(1, 0, 0);
 			else dirAB = dirAB.normalize();
 
-			Vec3 targetA = mid.add(dirAB.scale(-SPLIT));
-			Vec3 targetB = mid.add(dirAB.scale(SPLIT));
+			Vec3d targetA = mid.add(dirAB.scale(-SPLIT));
+			Vec3d targetB = mid.add(dirAB.scale(SPLIT));
 
 			// 轻微吸附，避免漂移
-			if (catA.position().distanceToSqr(targetA) > 0.0025) catA.setPos(targetA.x, catA.getY(), targetA.z);
-			if (catB.position().distanceToSqr(targetB) > 0.0025) catB.setPos(targetB.x, catB.getY(), targetB.z);
+			if (catA.position().squaredDistanceTo(targetA) > 0.0025) catA.setPos(targetA.x, catA.getY(), targetA.z);
+			if (catB.position().squaredDistanceTo(targetB) > 0.0025) catB.setPos(targetB.x, catB.getY(), targetB.z);
 			faceEachOther();
 		}
 
-		private void moveToward(Cat c, Vec3 target) {
-			Vec3 cur = c.position();
+		private void moveToward(Cat c, Vec3d target) {
+			Vec3d cur = c.position();
 			double dx = target.x - cur.x, dz = target.z - cur.z;
 			double dist = Math.hypot(dx, dz);
 			if (dist <= APPROACH_SPEED) {
@@ -327,7 +327,7 @@ public final class ServerMemeManager {
 		}
 	}
 
-	private static float facingYaw(Vec3 from, Vec3 to) {
+	private static float facingYaw(Vec3d from, Vec3d to) {
 		double dx = to.x - from.x, dz = to.z - from.z;
 		return (float) Math.toDegrees(Math.atan2(-dx, dz));
 	}
